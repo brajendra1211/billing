@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { partialUpdate } = require("../../utils/zodPartial");
 
 const renewalCreateSchema = z.object({
   customer_id: z.number().int().positive().optional().nullable(),
@@ -16,7 +17,7 @@ const renewalCreateSchema = z.object({
   notes: z.string().max(255).optional().nullable(),
 });
 
-const renewalUpdateSchema = renewalCreateSchema.partial();
+const renewalUpdateSchema = partialUpdate(renewalCreateSchema);
 
 const paymentCreateSchema = z.object({
   paid_date: z.string().min(10),

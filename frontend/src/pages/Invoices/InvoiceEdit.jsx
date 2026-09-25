@@ -5,6 +5,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { invoicesApi } from "../../api/invoices.api";
 import { customersApi } from "../../api/customers.api";
 import { itemsApi } from "../../api/items.api";
+import { companyApi } from "../../api/company.api";
+import StateSelect from "@/components/StateSelect";
+import { stateCode, stateName, customerStateCode, companyStateCode } from "@/lib/gst";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +95,14 @@ export default function InvoiceEdit() {
     { item_id: "", description: "", qty: 1, billing_months: 1, is_period_billing: false, rate: 0, discount_percent: 0, tax_percent: 18 },
   ]);
 
+  const [company, setCompany] = useState(null);
+  const autoInterstate = useMemo(() => {
+    const pos = stateCode(form.place_of_supply_state);
+    const own = companyStateCode(company);
+    return pos && own ? (pos !== own ? 1 : 0) : null;
+  }, [form.place_of_supply_state, company]);
+  const effectiveInterstate = autoInterstate ?? (Number(form.is_interstate) === 1 ? 1 : 0);
+
   const isDraft = useMemo(
     () => String(invoiceMeta?.status || "").toUpperCase() === "DRAFT",
     [invoiceMeta]
@@ -135,6 +146,8 @@ export default function InvoiceEdit() {
       );
 
       setCustomers(custRows);
+      const co = await companyApi.getMe().catch(() => null);
+      setCompany(co?.data || null);
       setItemsMaster(itemRows);
 
       setForm({
@@ -174,7 +187,18 @@ export default function InvoiceEdit() {
     // eslint-disable-next-line
   }, [id]);
 
-  const onChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => {
+      const next = { ...p, [name]: value };
+      if (name === "customer_id") {
+        // new customer -> their state becomes the place of supply
+        const cust = customers.find((c) => String(c.id) === String(value));
+        next.place_of_supply_state = stateName(customerStateCode(cust)) || "";
+      }
+      return next;
+    });
+  };
 
   const onItemChange = (idx, key, value) => {
     setItems((arr) => {
@@ -212,7 +236,7 @@ export default function InvoiceEdit() {
         invoice_date: form.invoice_date,
         due_date: form.due_date || null,
         place_of_supply_state: form.place_of_supply_state || null,
-        is_interstate: Number(form.is_interstate) === 1 ? 1 : 0,
+        is_interstate: effectiveInterstate,
         notes: form.notes || null,
         terms: form.terms || null,
         items: items.map((it) => ({
@@ -326,25 +350,24 @@ export default function InvoiceEdit() {
 
             <div className="grid gap-2">
               <Label>Place of Supply</Label>
-              <Input
-                name="place_of_supply_state"
-                value={form.place_of_supply_state}
-                onChange={onChange}
-                placeholder="e.g. MH"
-              />
+              <StateSelect name="place_of_supply_state" value={form.place_of_supply_state} onChange={onChange} />
             </div>
 
             <div className="grid gap-2">
               <Label>Interstate</Label>
               <select
                 name="is_interstate"
-                value={String(form.is_interstate)}
+                value={String(effectiveInterstate)}
                 onChange={onChange}
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                disabled={autoInterstate !== null}
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-80"
               >
-                <option value="0">No</option>
-                <option value="1">Yes</option>
+                <option value="0">No (CGST+SGST)</option>
+                <option value="1">Yes (IGST)</option>
               </select>
+              {autoInterstate !== null && (
+                <div className="text-xs text-muted-foreground">Auto: place of supply aur company state se</div>
+              )}
             </div>
           </div>
 

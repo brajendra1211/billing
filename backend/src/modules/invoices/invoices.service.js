@@ -3,6 +3,7 @@ const repo = require("./invoices.repository");
 const { getFinancialYear, formatInvoiceNo } = require("../../utils/invoice");
 const { writeAudit } = require("../../utils/audit");
 const { assertOwned } = require("../../utils/ownership");
+const gst = require("../../utils/gst");
 
 function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
@@ -115,12 +116,48 @@ async function computeInvoiceLinesAndTotals(companyId, payload) {
 }
 
 /**
+ * GST rule: IGST when place of supply is a different state from the company's
+ * state, CGST+SGST when it's the same. Place of supply defaults to the
+ * customer's GSTIN state (registered) or billing state.
+ * strict: the place of supply was typed by the user, so reject unknown values.
+ */
+async function resolveSupply(db, companyId, customerId, requestedPos, { strict = true } = {}) {
+  const [[company]] = await db.query("SELECT gstin, billing_state FROM companies WHERE id=?", [companyId]);
+  const [[customer]] = await db.query(
+    "SELECT gstin, billing_state FROM customers WHERE id=? AND company_id=?",
+    [customerId, companyId]
+  );
+
+  let posCode = requestedPos ? gst.stateCode(requestedPos) : null;
+  if (requestedPos && !posCode && strict) {
+    const err = new Error(`Place of supply "${requestedPos}" pehchana nahi gaya. List se state chunein.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!posCode) posCode = gst.customerStateCode(customer);
+
+  const companyCode = gst.companyStateCode(company);
+  return {
+    place_of_supply_state: posCode ? gst.stateName(posCode) : null,
+    // null = can't decide (state unknown) -> keep what the user chose
+    is_interstate: posCode && companyCode ? (posCode !== companyCode ? 1 : 0) : null,
+  };
+}
+
+/**
  * CREATE invoice as DRAFT (no finalize)
  */
 async function createInvoice({ companyId, userId, payload }) {
   const fy = getFinancialYear(payload.invoice_date);
 
   await assertOwned(pool, "customers", companyId, payload.customer_id, "Customer");
+
+  const supply = await resolveSupply(pool, companyId, payload.customer_id, payload.place_of_supply_state);
+  payload = {
+    ...payload,
+    place_of_supply_state: supply.place_of_supply_state,
+    is_interstate: supply.is_interstate ?? (Number(payload.is_interstate) === 1 ? 1 : 0),
+  };
 
   const { totals, lineRows } = await computeInvoiceLinesAndTotals(companyId, payload);
 
@@ -207,6 +244,18 @@ async function updateInvoice({ companyId, userId, invoiceId, patch }) {
 
     if (patch.customer_id !== undefined) {
       await assertOwned(conn, "customers", companyId, patch.customer_id, "Customer");
+    }
+
+    // Re-derive place of supply / IGST whenever anything affecting it changes
+    const has = (k) => Object.prototype.hasOwnProperty.call(patch, k);
+    if (has("customer_id") || has("place_of_supply_state") || has("is_interstate") || Array.isArray(patch.items)) {
+      const customerId = patch.customer_id ?? inv.customer_id;
+      const customerChanged = has("customer_id") && Number(patch.customer_id) !== Number(inv.customer_id);
+      const userPos = has("place_of_supply_state") ? patch.place_of_supply_state : null;
+      const inheritedPos = !has("place_of_supply_state") && !customerChanged ? inv.place_of_supply_state : null;
+      const supply = await resolveSupply(conn, companyId, customerId, userPos || inheritedPos, { strict: Boolean(userPos) });
+      patch = { ...patch, place_of_supply_state: supply.place_of_supply_state };
+      if (supply.is_interstate !== null) patch.is_interstate = supply.is_interstate;
     }
 
     // Interstate flag change needs CGST/SGST <-> IGST recompute, so reuse stored lines

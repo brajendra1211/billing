@@ -1,15 +1,17 @@
 const { z } = require("zod");
+const { partialUpdate } = require("../../utils/zodPartial");
+const { gstinField } = require("../../utils/zodGst");
 
 const vendorCreateSchema = z.object({
   name: z.string().min(2).max(120),
   phone: z.string().max(30).optional().nullable(),
   email: z.string().max(120).optional().nullable(),
   address: z.string().max(255).optional().nullable(),
-  gstin: z.string().max(20).optional().nullable(),
+  gstin: gstinField,
   is_active: z.number().int().optional().default(1),
 });
 
-const vendorUpdateSchema = vendorCreateSchema.partial();
+const vendorUpdateSchema = partialUpdate(vendorCreateSchema);
 
 const serviceCreateSchema = z.object({
   vendor_id: z.number().int().positive(),
@@ -19,7 +21,7 @@ const serviceCreateSchema = z.object({
   is_active: z.number().int().optional().default(1),
 });
 
-const serviceUpdateSchema = serviceCreateSchema.partial();
+const serviceUpdateSchema = partialUpdate(serviceCreateSchema);
 
 const consumptionCreateSchema = z.object({
   vendor_id: z.number().int().positive(),
@@ -29,7 +31,7 @@ const consumptionCreateSchema = z.object({
   notes: z.string().max(255).optional().nullable(),
 });
 
-const consumptionUpdateSchema = consumptionCreateSchema.partial();
+const consumptionUpdateSchema = partialUpdate(consumptionCreateSchema);
 
 const billGenerateSchema = z.object({
   vendor_id: z.number().int().positive(),

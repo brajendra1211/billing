@@ -166,6 +166,9 @@ export default function ItemsPage() {
                   value={form.hsn_sac}
                   onChange={onChange}
                 />
+                {form.hsn_sac && !/^(\d{4}|\d{6}|\d{8})$/.test(String(form.hsn_sac).trim()) && (
+                  <div className="text-xs text-red-600">HSN/SAC 4, 6 ya 8 digit ka number hona chahiye</div>
+                )}
               </div>
 
               <div className="grid gap-2">

@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { partialUpdate } = require("../../utils/zodPartial");
 
 const expenseCreateSchema = z.object({
   category_id: z.number().int().positive(),
@@ -10,7 +11,7 @@ const expenseCreateSchema = z.object({
   notes: z.string().max(255).optional().nullable(),
 });
 
-const expenseUpdateSchema = expenseCreateSchema.partial();
+const expenseUpdateSchema = partialUpdate(expenseCreateSchema);
 
 const categoryCreateSchema = z.object({
   name: z.string().min(2).max(80),

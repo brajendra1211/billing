@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import StateSelect from "@/components/StateSelect";
+import { gstinError } from "@/lib/gst";
 
 const empty = {
   name: "",
@@ -109,7 +111,8 @@ export default function CompanySettings() {
 
           <div className="grid gap-2">
             <Label>GSTIN</Label>
-            <Input name="gstin" value={form.gstin || ""} onChange={onChange} />
+            <Input name="gstin" value={form.gstin || ""} onChange={onChange} placeholder="e.g. 09ABCDE1234F1Z5" />
+            {gstinError(form.gstin) && <div className="text-xs text-red-600">{gstinError(form.gstin)}</div>}
           </div>
 
           <div className="grid gap-2">
@@ -150,11 +153,7 @@ export default function CompanySettings() {
 
           <div className="grid gap-2">
             <Label>State</Label>
-            <Input
-              name="billing_state"
-              value={form.billing_state || ""}
-              onChange={onChange}
-            />
+            <StateSelect name="billing_state" value={form.billing_state} onChange={onChange} />
           </div>
 
           <div className="grid gap-2 md:col-span-2">

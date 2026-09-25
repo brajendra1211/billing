@@ -72,10 +72,17 @@ function SidebarNav({ role }) {
         Invoices
       </NavLink>
 
-      <NavLink to="/reports" className={navClass}>
+      <NavLink to="/reports" end className={navClass}>
         <BarChart3 className="h-4 w-4" />
         Reports
       </NavLink>
+
+      {(r === "ADMIN" || r === "STAFF") && (
+        <NavLink to="/reports/gst" className={navClass}>
+          <ReceiptText className="h-4 w-4" />
+          GST & P&L
+        </NavLink>
+      )}
 
       {(r === "ADMIN" || r === "STAFF") && (
       <>

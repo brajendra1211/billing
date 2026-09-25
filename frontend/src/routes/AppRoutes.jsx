@@ -23,6 +23,7 @@ import RenewalCreate from "@/pages/Renewals/RenewalCreate";
 import RenewalView from "@/pages/Renewals/RenewalView";
 import NotificationSettings from "@/pages/Settings/NotificationSettings";
 import CustomerPortal from "@/pages/Portal/CustomerPortal";
+import GstReports from "@/pages/Reports/GstReports";
 
 
 
@@ -43,6 +44,7 @@ export default function AppRoutes() {
           <Route path="/settings/company" element={<CompanySettings />} />
           <Route path="/users" element={<UsersPage />} />
          <Route path="/reports" element={<ReportsDashboard />} />
+         <Route path="/reports/gst" element={<GstReports />} />
          <Route path="/invoices/:id/edit" element={<InvoiceEdit />} />
          <Route path="/expenses" element={<ExpensesList />} />
          <Route path="/expenses/categories" element={<ExpenseCategories />} />

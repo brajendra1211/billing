@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import StateSelect from "@/components/StateSelect";
+import { gstinError } from "@/lib/gst";
 
 const empty = {
   name: "",
@@ -176,16 +178,12 @@ export default function CustomersPage() {
                   value={form.gstin}
                   onChange={onChange}
                 />
+                {gstinError(form.gstin) && <div className="text-xs text-red-600">{gstinError(form.gstin)}</div>}
               </div>
 
               <div className="grid gap-2">
                 <Label>State</Label>
-                <Input
-                  name="billing_state"
-                  placeholder="e.g. Uttar Pradesh"
-                  value={form.billing_state}
-                  onChange={onChange}
-                />
+                <StateSelect name="billing_state" value={form.billing_state} onChange={onChange} />
               </div>
 
               <div className="grid gap-2">

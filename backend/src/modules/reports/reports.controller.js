@@ -1,6 +1,7 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const service = require("./reports.service");
 const exportService = require("./reports.export.service");
+const gstService = require("./gst.service");
 
 const dashboard = asyncHandler(async (req, res) => {
   const companyId = req.user.companyId;
@@ -80,7 +81,37 @@ const exportDashboardPdf = asyncHandler(async (req, res) => {
   res.send(buf);
 });
 
+const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const gstr1 = asyncHandler(async (req, res) => {
+  const data = await gstService.gstr1(req.user.companyId, req.query.month);
+  res.json({ ok: true, data });
+});
+
+const gstr1Xlsx = asyncHandler(async (req, res) => {
+  const buf = await gstService.gstr1Xlsx(req.user.companyId, req.query.month);
+  res.setHeader("Content-Type", XLSX_TYPE);
+  res.setHeader("Content-Disposition", `attachment; filename="GSTR1_${String(req.query.month).replace(/[^\d-]/g, "")}.xlsx"`);
+  res.send(Buffer.from(buf));
+});
+
+const pnl = asyncHandler(async (req, res) => {
+  const data = await gstService.pnl(req.user.companyId, { from: req.query.from, to: req.query.to });
+  res.json({ ok: true, data });
+});
+
+const pnlXlsx = asyncHandler(async (req, res) => {
+  const buf = await gstService.pnlXlsx(req.user.companyId, { from: req.query.from, to: req.query.to });
+  res.setHeader("Content-Type", XLSX_TYPE);
+  res.setHeader("Content-Disposition", `attachment; filename="PnL_${req.query.from}_${req.query.to}.xlsx"`.replace(/[^\w.\-"=; ]/g, ""));
+  res.send(Buffer.from(buf));
+});
+
 module.exports = {
+  gstr1,
+  gstr1Xlsx,
+  pnl,
+  pnlXlsx,
   dashboard,
   customers,
   customer,

@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { customersApi } from "../../api/customers.api";
 import { itemsApi } from "../../api/items.api";
 import { invoicesApi } from "../../api/invoices.api";
+import { companyApi } from "../../api/company.api";
+import StateSelect from "@/components/StateSelect";
+import { stateCode, stateName, customerStateCode, companyStateCode } from "@/lib/gst";
 import { useNavigate, Link } from "react-router-dom";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +46,7 @@ export default function InvoiceCreate() {
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
   const [isInterstate, setIsInterstate] = useState(0);
   const [placeOfSupplyState, setPlaceOfSupplyState] = useState("");
+  const [company, setCompany] = useState(null);
 
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
@@ -59,11 +63,27 @@ export default function InvoiceCreate() {
         const i = await itemsApi.list();
         setCustomers(c.data || []);
         setItemsMaster(i.data || []);
+        const co = await companyApi.getMe().catch(() => null);
+        setCompany(co?.data || null);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  // GST: IGST when place of supply differs from the company's state (backend enforces the same rule)
+  const autoInterstate = useMemo(() => {
+    const pos = stateCode(placeOfSupplyState);
+    const own = companyStateCode(company);
+    return pos && own ? (pos !== own ? 1 : 0) : null;
+  }, [placeOfSupplyState, company]);
+  const effectiveInterstate = autoInterstate ?? Number(isInterstate);
+
+  const onSelectCustomer = (id) => {
+    setCustomerId(id);
+    const cust = customers.find((c) => String(c.id) === String(id));
+    setPlaceOfSupplyState(stateName(customerStateCode(cust)) || "");
+  };
 
   const itemById = useMemo(() => {
     const map = new Map();
@@ -109,7 +129,7 @@ export default function InvoiceCreate() {
       const taxable = n2(base - disc);
 
       let cgst = 0, sgst = 0, igst = 0;
-      if (Number(isInterstate) === 1) {
+      if (effectiveInterstate === 1) {
         igst = n2((taxable * taxP) / 100);
       } else {
         const half = taxP / 2;
@@ -131,7 +151,7 @@ export default function InvoiceCreate() {
 
     const grand_total = n2(taxable_total + cgst_total + sgst_total + igst_total);
     return { line, subtotal, discount_total, taxable_total, cgst_total, sgst_total, igst_total, grand_total };
-  }, [rows, isInterstate]);
+  }, [rows, effectiveInterstate]);
 
   const submit = async (e) => {
     e?.preventDefault?.();
@@ -150,7 +170,7 @@ export default function InvoiceCreate() {
       customer_id: Number(customerId),
       invoice_date: invoiceDate,
       place_of_supply_state: placeOfSupplyState || null,
-      is_interstate: Number(isInterstate),
+      is_interstate: effectiveInterstate,
       notes: notes || null,
       terms: terms || null,
       items: validRows.map((r) => ({
@@ -214,7 +234,7 @@ export default function InvoiceCreate() {
                   <Label>Customer *</Label>
                   <select
                     value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
+                    onChange={(e) => onSelectCustomer(e.target.value)}
                     className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   >
                     <option value="">-- select --</option>
@@ -234,22 +254,23 @@ export default function InvoiceCreate() {
                 <div className="grid gap-2">
                   <Label>Interstate?</Label>
                   <select
-                    value={isInterstate}
+                    value={effectiveInterstate}
                     onChange={(e) => setIsInterstate(e.target.value)}
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    disabled={autoInterstate !== null}
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-80"
                   >
                     <option value={0}>No (CGST+SGST)</option>
                     <option value={1}>Yes (IGST)</option>
                   </select>
+                  {autoInterstate !== null && (
+                    <div className="text-xs text-muted-foreground">Auto: place of supply aur company state se tay hua</div>
+                  )}
                 </div>
 
                 <div className="grid gap-2 md:col-span-2">
                   <Label>Place of Supply (State)</Label>
-                  <Input
-                    value={placeOfSupplyState}
-                    onChange={(e) => setPlaceOfSupplyState(e.target.value)}
-                    placeholder="e.g. Madhya Pradesh"
-                  />
+                  <StateSelect value={placeOfSupplyState} onChange={(e) => setPlaceOfSupplyState(e.target.value)} />
+                  <div className="text-xs text-muted-foreground">Customer chunne pe apne aap bhar jata hai (GSTIN ka state pehle)</div>
                 </div>
               </div>
             </CardContent>
@@ -449,7 +470,7 @@ export default function InvoiceCreate() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Totals</CardTitle>
               <Badge variant="secondary" className="rounded-full">
-                {Number(isInterstate) === 1 ? "IGST" : "CGST+SGST"}
+                {effectiveInterstate === 1 ? "IGST" : "CGST+SGST"}
               </Badge>
             </CardHeader>
 

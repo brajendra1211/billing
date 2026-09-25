@@ -19,6 +19,8 @@ GST billing and invoicing app for an IT services business. It covers invoices, p
 | Renewals | Domain/hosting/SSL/AMC renewals with due-date tracking |
 | Vendors | Vendor services, daily consumption, monthly vendor bills and payments |
 | Reports | Dashboard (sales, GST, dues, aging, profit), customer ledger, Excel/PDF export |
+| GST | GSTIN check (format + check digit), HSN/SAC check, place of supply picked from the customer (GSTIN state first) with IGST vs CGST+SGST decided automatically, GSTR-1 Excel (b2b, b2cl, b2cs, cdnr, cdnur, hsn(b2b), hsn(b2c), docs, plus a warnings sheet) |
+| Profit & Loss | Month-wise income (taxable sales − credit notes) minus expenses, vendor bills and renewal payments; Excel export |
 | Users | Roles: `ADMIN`, `STAFF`, `VIEWER` |
 
 ## Requirements
@@ -114,6 +116,7 @@ frontend/
 ## Notes
 
 - A FINAL invoice cannot be edited or cancelled. Correct it with a credit note.
+- GSTR-1 includes FINAL invoices and credit notes dated in the month. B2CL is inter-state B2C invoices above ₹1,00,000. Check the `warnings` sheet and have your CA review the file before filing.
 - Invoice balance is `grand total − credit notes − payments + refunds`.
 - The customer portal only shows invoices that are FINAL or were sent to the customer. Use **Regenerate** on a customer's portal link to stop the old link from working.
 - Razorpay webhooks need the API to be reachable from the internet. Without that, payments are still picked up by the 30-minute sync or when the customer returns to the portal.
