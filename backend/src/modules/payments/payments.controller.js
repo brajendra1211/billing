@@ -1,6 +1,6 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const service = require("./payments.service");
-const { paymentCreateSchema } = require("./payments.validation");
+const { paymentCreateSchema, paymentDeleteSchema } = require("./payments.validation");
 const pdfService = require("../pdf/pdf.service"); // ✅ has generateReceiptPdf
 
 const listByInvoice = asyncHandler(async (req, res) => {
@@ -22,6 +22,18 @@ const addToInvoice = asyncHandler(async (req, res) => {
   res.json({ ok: true, ...out });
 });
 
+const remove = asyncHandler(async (req, res) => {
+  const body = paymentDeleteSchema.parse(req.body || {});
+  const data = await service.deletePayment({
+    companyId: req.user.companyId,
+    userId: req.user.id,
+    invoiceId: Number(req.params.id),
+    paymentId: Number(req.params.pid),
+    reason: body.reason,
+  });
+  res.json({ ok: true, data });
+});
+
 const receiptPdf = asyncHandler(async (req, res) => {
   const companyId = req.user.companyId;
   const invoiceId = Number(req.params.id);
@@ -38,4 +50,4 @@ const receiptPdf = asyncHandler(async (req, res) => {
   res.send(out.pdf);
 });
 
-module.exports = { listByInvoice, addToInvoice, receiptPdf };
+module.exports = { listByInvoice, addToInvoice, remove, receiptPdf };

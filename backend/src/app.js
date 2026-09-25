@@ -20,6 +20,7 @@ const expensesRoutes = require("./modules/expenses/expenses.routes");
 const vendorRoutes = require("./modules/vendors/vendors.routes");
 const renewalsRoutes = require("./modules/renewals/renewals.routes");
 const notificationsRoutes = require("./modules/notifications/notifications.routes");
+const creditNotesRoutes = require("./modules/creditNotes/creditNotes.routes");
 
 
 
@@ -64,6 +65,7 @@ app.use("/api/expenses", authRequired, expensesRoutes);
 app.use("/api/vendors", authRequired, vendorRoutes);
 app.use("/api/renewals", authRequired, renewalsRoutes);
 app.use("/api/notifications", authRequired, notificationsRoutes);
+app.use("/api/credit-notes", authRequired, creditNotesRoutes);
 
 
 

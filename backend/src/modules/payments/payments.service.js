@@ -44,9 +44,9 @@ async function addToInvoice({ companyId, userId, invoiceId, payload }) {
       throw err;
     }
 
-    const beforePaymentTotals = await repo.sumPaymentsForInvoice(conn, companyId, invoiceId);
-    const currentPaid = round2(beforePaymentTotals.paid_total || 0);
-    const currentDue = round2(Number(inv.grand_total || 0) - currentPaid);
+    // due already accounts for credit notes and refunds
+    const before = await invoicesRepo.recomputeBalances(conn, companyId, invoiceId);
+    const currentDue = round2(before.due_total);
 
     if (currentDue <= 0) {
       const err = new Error("Invoice is already fully paid");
@@ -81,19 +81,7 @@ async function addToInvoice({ companyId, userId, invoiceId, payload }) {
     });
 
     // 2) recompute invoice paid/due
-    const totals = await repo.sumPaymentsForInvoice(conn, companyId, invoiceId);
-    const paid_total = round2(totals.paid_total || 0);
-
-    let due_total = round2(Number(inv.grand_total) - paid_total);
-    if (due_total < 0) due_total = 0;
-
-    await repo.updateInvoicePaidDue(conn, {
-      companyId,
-      invoiceId,
-      paid_total,
-      due_total,
-      updated_by: userId,
-    });
+    const { paid_total, due_total } = await invoicesRepo.recomputeBalances(conn, companyId, invoiceId, userId);
 
     /**
      * 3) ✅ FIXED BUSINESS RULE
@@ -154,7 +142,80 @@ async function addToInvoice({ companyId, userId, invoiceId, payload }) {
   }
 }
 
+/**
+ * Delete a wrongly-entered payment (ADMIN). The full row is kept in the audit log.
+ * A FINAL invoice keeps its number; only paid/due are recomputed.
+ */
+async function deletePayment({ companyId, userId, invoiceId, paymentId, reason }) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const inv = await repo.getInvoiceForPayment(conn, companyId, invoiceId);
+    if (!inv) {
+      const err = new Error("Invoice not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const [[payment]] = await conn.query(
+      "SELECT * FROM payments WHERE id=? AND invoice_id=? AND company_id=? FOR UPDATE",
+      [paymentId, invoiceId, companyId]
+    );
+    if (!payment) {
+      const err = new Error("Payment not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    // Refunds already given out of this money would leave paid < refunded
+    const [[cn]] = await conn.query(
+      "SELECT COALESCE(SUM(refund_amount),0) AS refunded FROM credit_notes WHERE company_id=? AND invoice_id=?",
+      [companyId, invoiceId]
+    );
+    const paidAfter = round2(Number(inv.paid_total) - Number(payment.amount));
+    if (paidAfter < round2(cn.refunded)) {
+      const err = new Error("Is payment se refund diya ja chuka hai. Pehle refund wala credit note dekhein.");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    await conn.query("DELETE FROM payments WHERE id=? AND company_id=?", [paymentId, companyId]);
+    const balances = await invoicesRepo.recomputeBalances(conn, companyId, invoiceId, userId);
+
+    await writeAudit(conn, {
+      companyId,
+      userId,
+      entityType: "PAYMENT",
+      entityId: paymentId,
+      action: "DELETE",
+      oldValues: payment,
+      newValues: { invoice_id: invoiceId, paid_total: balances.paid_total, due_total: balances.due_total },
+      note: reason,
+    });
+    await writeAudit(conn, {
+      companyId,
+      userId,
+      entityType: "INVOICE",
+      entityId: invoiceId,
+      action: "PAYMENT_DELETED",
+      oldValues: { payment_id: paymentId, amount: payment.amount, paid_total: inv.paid_total },
+      newValues: { paid_total: balances.paid_total, due_total: balances.due_total },
+      note: reason,
+    });
+
+    await conn.commit();
+    return balances;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   listByInvoice,
   addToInvoice,
+  deletePayment,
 };

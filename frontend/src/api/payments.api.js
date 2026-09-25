@@ -6,4 +6,7 @@ export const paymentsApi = {
 
   addToInvoice: async (invoiceId, payload) =>
     (await api.post(`/api/invoices/${invoiceId}/payments`, payload)).data,
+
+  remove: async (invoiceId, paymentId, reason) =>
+    (await api.delete(`/api/invoices/${invoiceId}/payments/${paymentId}`, { data: { reason } })).data,
 };

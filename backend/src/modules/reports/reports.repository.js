@@ -59,22 +59,38 @@ async function getSummary(companyId, from, to) {
     [companyId, from, to]
   );
 
+  // Credit notes (by credit note date) reduce sales & GST; refunds reduce money received
+  const [cnRows] = await pool.query(
+    `SELECT COALESCE(SUM(grand_total),0) AS cn_total,
+            COALESCE(SUM(cgst_total),0) AS cn_cgst,
+            COALESCE(SUM(sgst_total),0) AS cn_sgst,
+            COALESCE(SUM(igst_total),0) AS cn_igst,
+            COALESCE(SUM(refund_amount),0) AS refunds
+     FROM credit_notes
+     WHERE company_id=? AND cn_date BETWEEN ? AND ?`,
+    [companyId, from, to]
+  );
+  const cn = cnRows[0] || {};
+  const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
   return {
     invoices_final: Number(invRows[0]?.final_count || 0),
-    sales_total: Number(invRows[0]?.sales_total || 0),
+    sales_total: r2(Number(invRows[0]?.sales_total || 0) - Number(cn.cn_total || 0)),
+    credit_notes_total: Number(cn.cn_total || 0),
+    refunds_total: Number(cn.refunds || 0),
     invoice_paid_total: Number(invRows[0]?.inv_paid_total || 0),
     due_total: Number(dueRows[0]?.due_total || 0),
     draft_due_total: Number(dueRows[0]?.draft_due_total || 0),
     final_due_total: Number(dueRows[0]?.final_due_total || invRows[0]?.final_due_total || 0),
-    cgst_total: Number(invRows[0]?.cgst_total || 0),
-    sgst_total: Number(invRows[0]?.sgst_total || 0),
-    igst_total: Number(invRows[0]?.igst_total || 0),
+    cgst_total: r2(Number(invRows[0]?.cgst_total || 0) - Number(cn.cn_cgst || 0)),
+    sgst_total: r2(Number(invRows[0]?.sgst_total || 0) - Number(cn.cn_sgst || 0)),
+    igst_total: r2(Number(invRows[0]?.igst_total || 0) - Number(cn.cn_igst || 0)),
 
     invoices_draft: Number(statusRows[0]?.draft_count || 0),
     invoices_final_all: Number(statusRows[0]?.final_count_all || 0),
     invoices_cancelled: Number(statusRows[0]?.cancelled_count || 0),
 
-    payments_received: Number(payRows[0]?.payments_received || 0),
+    payments_received: r2(Number(payRows[0]?.payments_received || 0) - Number(cn.refunds || 0)),
   };
 }
 
@@ -93,10 +109,22 @@ async function getDailySales(companyId, from, to) {
     `,
     [companyId, from, to]
   );
-  return rows.map((r) => ({
-    day: r.day,
-    sales: Number(r.sales || 0),
-  }));
+  const [cnRows] = await pool.query(
+    `SELECT cn_date AS day, COALESCE(SUM(grand_total),0) AS credit
+     FROM credit_notes
+     WHERE company_id=? AND cn_date BETWEEN ? AND ?
+     GROUP BY cn_date`,
+    [companyId, from, to]
+  );
+
+  const byDay = new Map(rows.map((r) => [String(r.day), Number(r.sales || 0)]));
+  for (const c of cnRows) {
+    const d = String(c.day);
+    byDay.set(d, Math.round(((byDay.get(d) || 0) - Number(c.credit || 0)) * 100) / 100);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([day, sales]) => ({ day, sales }));
 }
 
 async function getTopDueCustomers(companyId, limit = 10) {
@@ -221,7 +249,40 @@ async function getCustomerLedger(companyId, customerId, limit = 100) {
     [companyId, customerId, Number(limit)]
   );
 
+  const [cnRows] = await pool.query(
+    `SELECT cn.id, cn.invoice_id, cn.cn_no, cn.cn_date AS entry_date, cn.grand_total, cn.refund_amount,
+            cn.refund_mode, i.invoice_no
+     FROM credit_notes cn
+     JOIN invoices i ON i.id=cn.invoice_id
+     WHERE cn.company_id=? AND cn.customer_id=?
+     ORDER BY cn.cn_date ASC, cn.id ASC
+     LIMIT ?`,
+    [companyId, customerId, Number(limit)]
+  );
+
   const entries = [
+    ...cnRows.map((c) => ({
+      type: "CREDIT_NOTE",
+      entry_date: c.entry_date,
+      invoice_id: c.invoice_id,
+      invoice_no: c.invoice_no,
+      debit: 0,
+      credit: Number(c.grand_total || 0),
+      status: c.cn_no,
+      note: `Credit note ${c.cn_no}`,
+    })),
+    ...cnRows
+      .filter((c) => Number(c.refund_amount) > 0)
+      .map((c) => ({
+        type: "REFUND",
+        entry_date: c.entry_date,
+        invoice_id: c.invoice_id,
+        invoice_no: c.invoice_no,
+        debit: Number(c.refund_amount || 0),
+        credit: 0,
+        status: c.refund_mode,
+        note: `Refund against ${c.cn_no}`,
+      })),
     ...invoiceRows.map((i) => ({
       type: "INVOICE",
       entry_date: i.entry_date,
@@ -292,8 +353,8 @@ async function getProfit(companyId, from, to) {
     `
     SELECT
       COALESCE(SUM(ii.taxable_amount),0) AS gross_sales,
-      COALESCE(SUM(ii.qty * it.cost_price),0) AS total_cost,
-      COALESCE(SUM(ii.taxable_amount - (ii.qty * it.cost_price)),0) AS gross_profit
+      COALESCE(SUM(ii.qty * ii.billing_months * it.cost_price),0) AS total_cost,
+      COALESCE(SUM(ii.taxable_amount - (ii.qty * ii.billing_months * it.cost_price)),0) AS gross_profit
     FROM invoice_items ii
     JOIN invoices i ON i.id = ii.invoice_id
     JOIN items it ON it.id = ii.item_id
@@ -304,10 +365,17 @@ async function getProfit(companyId, from, to) {
     [companyId, from, to]
   );
 
+  const [[cn]] = await pool.query(
+    `SELECT COALESCE(SUM(taxable_total),0) AS credited
+     FROM credit_notes WHERE company_id=? AND cn_date BETWEEN ? AND ?`,
+    [companyId, from, to]
+  );
+  const credited = Number(cn?.credited || 0);
+
   return {
-    gross_sales: Number(rows[0]?.gross_sales || 0),
+    gross_sales: Number(rows[0]?.gross_sales || 0) - credited,
     total_cost: Number(rows[0]?.total_cost || 0),
-    gross_profit: Number(rows[0]?.gross_profit || 0),
+    gross_profit: Number(rows[0]?.gross_profit || 0) - credited,
   };
 }
 

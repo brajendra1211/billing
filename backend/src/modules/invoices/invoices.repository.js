@@ -51,9 +51,9 @@ async function createInvoiceHeader(conn, invoice) {
 async function insertInvoiceItem(conn, row) {
   await conn.query(
     `INSERT INTO invoice_items
-     (invoice_id, item_id, type, description, hsn_sac, unit, qty, rate,
+     (invoice_id, item_id, type, description, hsn_sac, unit, qty, billing_months, rate,
       discount_percent, discount_amount, tax_percent, taxable_amount, cgst_amount, sgst_amount, igst_amount, line_total)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       row.invoice_id,
       row.item_id,
@@ -62,6 +62,7 @@ async function insertInvoiceItem(conn, row) {
       row.hsn_sac,
       row.unit,
       row.qty,
+      row.billing_months ?? 1,
       row.rate,
       row.discount_percent,
       row.discount_amount,
@@ -228,6 +229,42 @@ async function updateStatusCancelled(conn, companyId, invoiceId, reason) {
   );
   return res.affectedRows;
 }
+/**
+ * Single source of truth for an invoice's balances:
+ *   due = grand_total - credit notes - payments + refunds (never below 0)
+ * Call inside the same transaction after any payment / credit note change.
+ */
+async function recomputeBalances(conn, companyId, invoiceId, updatedBy = null) {
+  const [[inv]] = await conn.query(
+    "SELECT grand_total FROM invoices WHERE id=? AND company_id=? FOR UPDATE",
+    [invoiceId, companyId]
+  );
+  if (!inv) return null;
+  const [[p]] = await conn.query(
+    "SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE company_id=? AND invoice_id=?",
+    [companyId, invoiceId]
+  );
+  const [[c]] = await conn.query(
+    `SELECT COALESCE(SUM(grand_total),0) AS credit, COALESCE(SUM(refund_amount),0) AS refunded
+     FROM credit_notes WHERE company_id=? AND invoice_id=?`,
+    [companyId, invoiceId]
+  );
+  const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  const paid_total = r2(p.paid);
+  const credit_total = r2(c.credit);
+  const refunded_total = r2(c.refunded);
+  const net = r2(Number(inv.grand_total) - credit_total - paid_total + refunded_total);
+  const due_total = Math.max(0, net);
+  const customer_credit = Math.max(0, -net); // excess paid, not yet refunded
+
+  await conn.query(
+    `UPDATE invoices SET paid_total=?, credit_total=?, due_total=?, updated_by=COALESCE(?, updated_by), updated_at=NOW()
+     WHERE id=? AND company_id=?`,
+    [paid_total, credit_total, due_total, updatedBy, invoiceId, companyId]
+  );
+  return { grand_total: Number(inv.grand_total), paid_total, credit_total, refunded_total, due_total, customer_credit };
+}
+
 async function listInvoicesFiltered(companyId, q) {
   const search = (q.search || "").trim();
   const status = (q.status || "").trim();
@@ -319,6 +356,7 @@ module.exports = {
   updateStatusFinal,
   updateStatusCancelled,
   listInvoicesFiltered,
+  recomputeBalances,
   markInvoiceSent,
   insertReminder,
   listReminders,

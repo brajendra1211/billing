@@ -14,6 +14,12 @@ router.post(
   ctrl.addToInvoice
 );
 
+router.delete(
+  "/invoices/:id/payments/:pid",
+  allowRoles("ADMIN"),
+  ctrl.remove
+);
+
 router.get(
   "/invoices/:id/payments/:pid/receipt.pdf",
   allowRoles("ADMIN", "STAFF", "VIEWER"),

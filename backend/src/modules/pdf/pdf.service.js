@@ -211,6 +211,10 @@ async function generateInvoicePdf(companyId, invoiceId) {
   const filled = fillTemplate(html, {
     // ✅ new placeholders
     upiQr,
+    creditRow:
+      Number(data.invoice.credit_total || 0) > 0
+        ? `<div class="sumRow"><span class="muted">Credit Notes</span><span>- ${escapeHtml(data.invoice.credit_total)}</span></div>`
+        : "",
     companyLogo,
     companySignature,
     invoiceStatusBadge,
@@ -332,4 +336,15 @@ const watermarkText = "RECEIPT";
 
 
 
-module.exports = { generateInvoicePdf, generateReceiptPdf, getReceiptData, getCompanyCustomerInvoice };
+module.exports = {
+  generateInvoicePdf,
+  generateReceiptPdf,
+  getReceiptData,
+  getCompanyCustomerInvoice,
+  // shared helpers (used by credit notes)
+  escapeHtml,
+  fillTemplate,
+  formatDateShort,
+  toDataUriFromUploads,
+  htmlToPdfBuffer,
+};

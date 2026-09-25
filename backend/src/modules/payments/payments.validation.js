@@ -8,4 +8,8 @@ const paymentCreateSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-module.exports = { paymentCreateSchema };
+const paymentDeleteSchema = z.object({
+  reason: z.string().trim().min(3, "Reason required").max(255),
+});
+
+module.exports = { paymentCreateSchema, paymentDeleteSchema };

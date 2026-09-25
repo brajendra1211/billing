@@ -16,11 +16,6 @@ function cleanBillingNote(description) {
     .trim();
 }
 
-function extractBillingMonths(description) {
-  const match = String(description || "").match(/Billing:\s*[\d.]+\s*x\s*([\d.]+)\s*months/i);
-  return match ? Number(match[1] || 1) : 1;
-}
-
 function withBillingNote(description, qty, billingMonths, rate) {
   const baseDescription = cleanBillingNote(description);
   if (billingMonths <= 1) return baseDescription;
@@ -89,6 +84,7 @@ async function computeInvoiceLinesAndTotals(companyId, payload) {
       hsn_sac: master.hsn_sac,
       unit: master.unit || "Nos",
       qty,
+      billing_months,
       rate,
       discount_percent,
       discount_amount: discAmt,
@@ -228,7 +224,7 @@ async function updateInvoice({ companyId, userId, invoiceId, patch }) {
           item_id: r.item_id,
           qty: Number(r.qty),
           rate: Number(r.rate),
-          billing_months: extractBillingMonths(r.description),
+          billing_months: Number(r.billing_months || 1),
           discount_percent: Number(r.discount_percent || 0),
           tax_percent: Number(r.tax_percent),
           description: r.description,
@@ -427,7 +423,7 @@ async function cancelInvoice({ companyId, userId, invoiceId, reason }) {
     }
 
     if (inv.status === "FINAL") {
-      const err = new Error("Final invoice cannot be cancelled. Create a credit note workflow later.");
+      const err = new Error("Final invoice cancel nahi ho sakta. Iske liye Credit Note banayein.");
       err.statusCode = 400;
       throw err;
     }
