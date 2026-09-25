@@ -54,6 +54,8 @@ export default function InvoiceView() {
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailForm, setEmailForm] = useState({ to: "", cc: "", message: "" });
 
   const [payForm, setPayForm] = useState({
     payment_date: todayISO(),
@@ -84,6 +86,18 @@ export default function InvoiceView() {
     } catch (e) {
       alert(e.message);
     }
+  };
+
+  const downloadPdf = async (url, filename) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`PDF failed (${res.status})`);
+    const blobUrl = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
   };
 
   const load = async () => {
@@ -157,12 +171,44 @@ export default function InvoiceView() {
     }
   };
 
-  const markSent = async (channel) => {
+  const openEmail = () => {
+    setEmailForm({ to: invoice?.customer_email || "", cc: "", message: "" });
+    setEmailOpen(true);
+  };
+
+  const sendEmail = async (e) => {
+    e.preventDefault();
+    if (!emailForm.to) return alert("Email address required");
     setSending(true);
     try {
-      await invoicesApi.markSent(id, { channel });
+      const res = await invoicesApi.sendEmail(id, {
+        to: emailForm.to,
+        cc: emailForm.cc || null,
+        message: emailForm.message || null,
+      });
+      setEmailOpen(false);
+      await load();
+      alert(`Invoice email sent ✅ (${res.data?.to})`);
+    } catch (err) {
+      alert(err?.response?.data?.error || err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // WhatsApp can't receive a file from a link, so download the PDF for the user to attach
+  const sendWhatsapp = async () => {
+    const win = window.open("", "_blank"); // open synchronously so the popup isn't blocked
+    setSending(true);
+    try {
+      const res = await invoicesApi.whatsappLink(id);
+      if (win) win.location.href = res.data.url;
+      else window.open(res.data.url, "_blank");
+      await downloadPdf(pdfUrl, `Invoice-${invoice?.invoice_no || `DRAFT-${id}`}.pdf`.replace(/[/\\]/g, "_"));
+      await invoicesApi.markSent(id, { channel: "WHATSAPP" });
       await load();
     } catch (err) {
+      if (win) win.close();
       alert(err?.response?.data?.error || err.message);
     } finally {
       setSending(false);
@@ -191,9 +237,7 @@ export default function InvoiceView() {
   const isPaid = useMemo(() => Number(invoice?.due_total || 0) <= 0, [invoice]);
   const due = Number(invoice?.due_total || 0);
   const pdfUrl = `${API_BASE_URL}/api/invoices/${id}/pdf`;
-  const emailHref = `mailto:${invoice?.customer_email || ""}?subject=${encodeURIComponent(`Invoice ${invoice?.invoice_no || `#${invoice?.id}`}`)}&body=${encodeURIComponent(`Dear ${invoice?.customer_name || "Customer"},\n\nPlease find your invoice here: ${pdfUrl}\n\nTotal: ${invoice?.grand_total}\nDue: ${invoice?.due_total}`)}`;
-  const phoneDigits = String(invoice?.customer_phone || "").replace(/\D/g, "");
-  const whatsappHref = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Invoice ${invoice?.invoice_no || `#${invoice?.id}`}\nTotal: ${invoice?.grand_total}\nDue: ${invoice?.due_total}\nPDF: ${pdfUrl}`)}`;
+  const isCancelled = String(invoice?.status || "").toUpperCase() === "CANCELLED";
 
   if (loading) return <div className="text-sm text-muted-foreground">Loading...</div>;
   if (!data) return <div className="text-sm text-muted-foreground">Invoice not found</div>;
@@ -231,12 +275,18 @@ export default function InvoiceView() {
           >
             Invoice PDF
           </Button>
-          <a href={emailHref} onClick={() => markSent("EMAIL")}>
-            <Button type="button" variant="outline" disabled={sending}>Email</Button>
-          </a>
-          <a href={whatsappHref} target="_blank" rel="noreferrer" onClick={() => markSent("WHATSAPP")}>
-            <Button type="button" variant="outline" disabled={sending || !phoneDigits}>WhatsApp</Button>
-          </a>
+          <Button type="button" variant="outline" disabled={sending || isCancelled} onClick={openEmail}>
+            Email
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={sending || isCancelled}
+            onClick={sendWhatsapp}
+            title="WhatsApp khulega aur PDF download hoga — chat mein attach kar dein"
+          >
+            WhatsApp
+          </Button>
 
           {String(invoice.status).toUpperCase() === "DRAFT" && (
             <>
@@ -255,6 +305,46 @@ export default function InvoiceView() {
           </Link>
         </div>
       </div>
+
+      {emailOpen && (
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-base">Email invoice (PDF attached)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={sendEmail} className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>To *</Label>
+                <Input
+                  value={emailForm.to}
+                  onChange={(e) => setEmailForm((p) => ({ ...p, to: e.target.value }))}
+                  placeholder="customer@example.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>CC (optional, comma separated)</Label>
+                <Input
+                  value={emailForm.cc}
+                  onChange={(e) => setEmailForm((p) => ({ ...p, cc: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2 md:col-span-2">
+                <Label>Message (optional)</Label>
+                <textarea
+                  className="min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm"
+                  value={emailForm.message}
+                  onChange={(e) => setEmailForm((p) => ({ ...p, message: e.target.value }))}
+                  placeholder="Please find attached invoice..."
+                />
+              </div>
+              <div className="flex gap-2 md:col-span-2">
+                <Button type="submit" disabled={sending}>{sending ? "Sending..." : "Send Email"}</Button>
+                <Button type="button" variant="outline" onClick={() => setEmailOpen(false)}>Cancel</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary KPIs */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

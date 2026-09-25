@@ -13,5 +13,7 @@ export const invoicesApi = {
   reminders: async (id) => (await api.get(`/api/invoices/${id}/reminders`)).data,
   addReminder: async (id, payload) => (await api.post(`/api/invoices/${id}/reminders`, payload)).data,
   audit: async (id) => (await api.get(`/api/invoices/${id}/audit`)).data,
+  sendEmail: async (id, payload) => (await api.post(`/api/invoices/${id}/send-email`, payload, { timeout: 60000 })).data,
+  whatsappLink: async (id) => (await api.get(`/api/invoices/${id}/whatsapp-link`)).data,
   // cancel: async (id, payload) => (await api.post(`/api/invoices/${id}/cancel`, payload)).data,
 };

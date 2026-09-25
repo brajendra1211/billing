@@ -195,7 +195,12 @@ export default function CompanySettings() {
 
           <div className="grid gap-2">
             <Label>UPI ID</Label>
-            <Input name="upi_id" value={form.upi_id || ""} onChange={onChange} />
+            <Input name="upi_id" value={form.upi_id || ""} onChange={onChange} placeholder="9876543210@ybl" />
+            {form.upi_id && !/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(String(form.upi_id).trim()) && (
+              <div className="text-xs text-amber-700">
+                UPI ID mein @ hona chahiye (jaise 9876543210@ybl). Iske bina invoice pe QR code nahi banega.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

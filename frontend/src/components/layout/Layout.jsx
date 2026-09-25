@@ -14,6 +14,7 @@ import {
   Wallet,
   Building2,   // ✅ add
   ReceiptText, // ✅ add
+  Bell,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,11 @@ function SidebarNav({ role }) {
           <NavLink to="/settings/company" className={navClass}>
             <Settings className="h-4 w-4" />
             Company Settings
+          </NavLink>
+
+          <NavLink to="/settings/notifications" className={navClass}>
+            <Bell className="h-4 w-4" />
+            Reminders & Alerts
           </NavLink>
         </>
       )}

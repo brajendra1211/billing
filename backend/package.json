@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -20,7 +21,10 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "mysql2": "^3.16.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.0.10",
     "puppeteer": "^24.34.0",
+    "qrcode": "^1.5.4",
     "zod": "^4.3.4"
   },
   "devDependencies": {

@@ -76,6 +76,11 @@
     }
     .signImg{ height: 70px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
     .signImg img{ max-height:70px; max-width:220px; }
+
+    .payFlex{ display:flex; gap:10px; justify-content:space-between; align-items:flex-start; }
+    .upiQr{ text-align:center; }
+    .upiQr img{ width:96px; height:96px; display:block; margin:0 auto; }
+    .upiQr .cap{ font-size:9px; color:#6b7280; margin-top:2px; }
   </style>
 </head>
 
@@ -135,10 +140,15 @@
 
         <div class="col box pad">
           <div class="sectionTitle" style="margin-top:0;">Payment Details</div>
-          <div><span class="muted">Bank:</span> <b>{{company.bank_name}}</b></div>
-          <div><span class="muted">A/C:</span> <b>{{company.bank_account_no}}</b></div>
-          <div><span class="muted">IFSC:</span> <b>{{company.bank_ifsc}}</b></div>
-          <div><span class="muted">UPI:</span> <b>{{company.upi_id}}</b></div>
+          <div class="payFlex">
+            <div>
+              <div><span class="muted">Bank:</span> <b>{{company.bank_name}}</b></div>
+              <div><span class="muted">A/C:</span> <b>{{company.bank_account_no}}</b></div>
+              <div><span class="muted">IFSC:</span> <b>{{company.bank_ifsc}}</b></div>
+              <div><span class="muted">UPI:</span> <b>{{company.upi_id}}</b></div>
+            </div>
+            {{upiQr}}
+          </div>
         </div>
       </div>
 

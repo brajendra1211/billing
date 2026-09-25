@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const ctrl = require("./invoices.controller");
 const { allowRoles } = require("../../middlewares/auth");
+const notifications = require("../notifications/notifications.controller");
 
 // Everyone (including VIEWER)
 router.get("/", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.list);
@@ -13,6 +14,8 @@ router.post("/:id/finalize", allowRoles("ADMIN", "STAFF"), ctrl.finalize);
 router.post("/:id/mark-sent", allowRoles("ADMIN", "STAFF"), ctrl.markSent);
 router.get("/:id/reminders", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.listReminders);
 router.post("/:id/reminders", allowRoles("ADMIN", "STAFF"), ctrl.addReminder);
+router.post("/:id/send-email", allowRoles("ADMIN", "STAFF"), notifications.sendInvoiceEmail);
+router.get("/:id/whatsapp-link", allowRoles("ADMIN", "STAFF"), notifications.whatsappLink);
 router.get("/:id/audit", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.listAudit);
 
 // Only ADMIN

@@ -3,6 +3,7 @@ const path = require("path");
 const puppeteer = require("puppeteer");
 const pool = require("../../config/db");
 const crypto = require("crypto");
+const { upiQrDataUri } = require("../../utils/upi");
 
 function makeVerifyCode({ companyId, invoiceId, paymentId, createdAt }) {
   const secret = process.env.PDF_VERIFY_SECRET || process.env.JWT_SECRET || "change_me";
@@ -196,8 +197,20 @@ async function generateInvoicePdf(companyId, invoiceId) {
       ? `<span class="badge paid">₹ ${escapeHtml(data.invoice.due_total)} PAID</span>`
       : `<span class="badge due">₹ ${escapeHtml(data.invoice.due_total)} DUE</span>`;
 
+  // UPI QR for the amount still due (only when company has a valid UPI ID)
+  const qr = await upiQrDataUri({
+    upiId: data.company.upi_id,
+    payeeName: data.company.name,
+    amount: due,
+    note: `Invoice ${data.invoice.invoice_no || "#" + data.invoice.id}`,
+  });
+  const upiQr = qr
+    ? `<div class="upiQr"><img src="${qr}" alt="UPI QR" /><div class="cap">Scan to pay ₹ ${escapeHtml(due.toFixed(2))}</div></div>`
+    : "";
+
   const filled = fillTemplate(html, {
     // ✅ new placeholders
+    upiQr,
     companyLogo,
     companySignature,
     invoiceStatusBadge,
@@ -249,7 +262,7 @@ async function generateInvoicePdf(companyId, invoiceId) {
   });
 
   const pdf = await htmlToPdfBuffer(filled);
-  return { pdf, invoiceNo: data.invoice.invoice_no };
+  return { pdf, invoiceNo: data.invoice.invoice_no || `DRAFT-${data.invoice.id}` };
 }
 
 async function generateReceiptPdf(companyId, invoiceId, paymentId) {
@@ -319,4 +332,4 @@ const watermarkText = "RECEIPT";
 
 
 
-module.exports = { generateInvoicePdf, generateReceiptPdf ,getReceiptData};
+module.exports = { generateInvoicePdf, generateReceiptPdf, getReceiptData, getCompanyCustomerInvoice };

@@ -21,6 +21,7 @@ import VendorBills from "../pages/Vendors/VendorBills";
 import RenewalsList from "@/pages/Renewals/RenewalsList";
 import RenewalCreate from "@/pages/Renewals/RenewalCreate";
 import RenewalView from "@/pages/Renewals/RenewalView";
+import NotificationSettings from "@/pages/Settings/NotificationSettings";
 
 
 
@@ -52,6 +53,7 @@ export default function AppRoutes() {
           <Route path="/renewals" element={<RenewalsList />} />
           <Route path="/renewals/create" element={<RenewalCreate />} />
           <Route path="/renewals/:id" element={<RenewalView />} />
+          <Route path="/settings/notifications" element={<NotificationSettings />} />
           
 
 
