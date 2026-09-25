@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 export default function UsersPage() {
   const { user } = useAuth();
 
-  // ✅ Frontend guard
+  // ✅ Frontend guard (kept outside the hooks component so hook order never changes)
   if (String(user?.role || "").toUpperCase() !== "ADMIN") {
     return (
       <div className="max-w-2xl mx-auto">
@@ -28,6 +28,10 @@ export default function UsersPage() {
     );
   }
 
+  return <UsersManager />;
+}
+
+function UsersManager() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
