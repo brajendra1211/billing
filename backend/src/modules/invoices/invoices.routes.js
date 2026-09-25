@@ -1,0 +1,22 @@
+const router = require("express").Router();
+const ctrl = require("./invoices.controller");
+const { allowRoles } = require("../../middlewares/auth");
+
+// Everyone (including VIEWER)
+router.get("/", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.list);
+router.get("/:id", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.getOne);
+
+// Only ADMIN/STAFF
+router.post("/", allowRoles("ADMIN", "STAFF"), ctrl.create);
+router.put("/:id", allowRoles("ADMIN", "STAFF"), ctrl.update);
+router.post("/:id/finalize", allowRoles("ADMIN", "STAFF"), ctrl.finalize);
+router.post("/:id/mark-sent", allowRoles("ADMIN", "STAFF"), ctrl.markSent);
+router.get("/:id/reminders", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.listReminders);
+router.post("/:id/reminders", allowRoles("ADMIN", "STAFF"), ctrl.addReminder);
+router.get("/:id/audit", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.listAudit);
+
+// Only ADMIN
+router.post("/:id/cancel", allowRoles("ADMIN"), ctrl.cancel);
+
+
+module.exports = router;

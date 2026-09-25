@@ -1,0 +1,41 @@
+const asyncHandler = require("../../utils/asyncHandler");
+const service = require("./payments.service");
+const { paymentCreateSchema } = require("./payments.validation");
+const pdfService = require("../pdf/pdf.service"); // ✅ has generateReceiptPdf
+
+const listByInvoice = asyncHandler(async (req, res) => {
+  const companyId = req.user.companyId;
+  const invoiceId = Number(req.params.id);
+
+  const data = await service.listByInvoice(companyId, invoiceId);
+  res.json({ ok: true, data });
+});
+
+const addToInvoice = asyncHandler(async (req, res) => {
+  const companyId = req.user.companyId;
+  const userId = req.user.id;
+  const invoiceId = Number(req.params.id);
+
+  const payload = paymentCreateSchema.parse(req.body);
+  const out = await service.addToInvoice({ companyId, userId, invoiceId, payload });
+
+  res.json({ ok: true, ...out });
+});
+
+const receiptPdf = asyncHandler(async (req, res) => {
+  const companyId = req.user.companyId;
+  const invoiceId = Number(req.params.id);
+  const paymentId = Number(req.params.pid); // ✅ pid (matches routes)
+
+  const out = await pdfService.generateReceiptPdf(companyId, invoiceId, paymentId);
+  if (!out) return res.status(404).json({ ok: false, error: "Receipt not found" });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="RECEIPT-${out.invoiceNo}-${out.receiptId}.pdf"`
+  );
+  res.send(out.pdf);
+});
+
+module.exports = { listByInvoice, addToInvoice, receiptPdf };

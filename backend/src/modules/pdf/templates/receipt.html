@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Payment Receipt</title>
+  <style>
+    @page { margin: 10mm 10mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; color:#111827; margin:0; }
+
+    .box { border:1px solid #e5e7eb; border-radius: 10px; background:#fff; }
+    .pad { padding: 12px; }
+    .muted { color:#6b7280; }
+    .small { font-size: 11px; }
+
+    .row { display:flex; justify-content:space-between; gap:12px; }
+    .col { flex: 1; }
+
+    .title { font-size: 16px; font-weight: 900; margin:0; }
+    .sectionTitle{
+      margin: 0 0 8px 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color:#6b7280;
+      font-weight: 900;
+    }
+
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 900; display:inline-block; }
+    .paid { background:#ecfdf5; color:#16a34a; border:1px solid #bbf7d0; }
+    .due  { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+
+    .hdr { padding: 12px; border-bottom:1px solid #e5e7eb; background:#fafafa; border-top-left-radius:10px; border-top-right-radius:10px; }
+    .meta { min-width: 280px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; padding:10px; }
+    .kv { display:grid; grid-template-columns: 110px 1fr; gap:6px 10px; }
+    .kv .k { color:#6b7280; }
+    .kv .v { font-weight:800; }
+
+    .logoBox{
+      width: 64px; height: 64px;
+      border:1px solid #e5e7eb;
+      border-radius: 10px;
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden;
+      background:#fff;
+      flex:0 0 auto;
+    }
+    .logoBox img{ max-width: 64px; max-height: 64px; }
+    .logoEmpty { display:none; } /* if no logo, keep box but blank (optional) */
+
+    table { width:100%; border-collapse: collapse; }
+    th, td { border:1px solid #e5e7eb; padding: 8px 7px; }
+    th { background:#f9fafb; color:#374151; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+    .r { text-align:right; }
+
+    .signBox{
+      width: 260px;
+      border:1px dashed #e5e7eb;
+      border-radius: 10px;
+      padding: 10px;
+      text-align:center;
+      background:#fff;
+    }
+    .signImg{ height: 70px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .signImg img{ max-height:70px; max-width:220px; }
+    .signEmpty { color:#9ca3af; font-size:11px; }
+
+    .no-break { page-break-inside: avoid; }
+    /* Watermark */
+.watermark {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-28deg);
+  font-size: 60px;
+  font-weight: 1200;
+  letter-spacing: 4px;
+  color: rgba(17, 24, 39, 0.06); /* very light */
+  z-index: 0;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Ensure content stays above watermark */
+.content {
+  position: relative;
+  z-index: 2;
+}
+.security-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(17, 24, 39, 0.35),
+      rgba(17, 24, 39, 0.35) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+}
+
+  </style>
+</head>
+
+
+<body>
+  <div class="security-bg"></div>
+  <div class="box">
+
+    <!-- HEADER -->
+    <div class="hdr no-break">
+      <div class="row">
+        <div class="col">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <div class="logoBox">
+              {{companyLogo}}
+            </div>
+            <div>
+              <h1 class="title">{{company.name}}</h1>
+              <div class="muted">{{company.billing_city}}, {{company.billing_state}}</div>
+              <div class="muted">GSTIN: {{company.gstin}}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="meta">
+          <div class="sectionTitle" style="margin-top:0;">Payment Receipt</div>
+          <div class="kv">
+            <div class="k">Receipt ID</div>
+            <div class="v">{{payment.id}}</div>
+
+            <div class="k">Date</div>
+            <div class="v">{{payment.payment_date}}</div>
+
+            <div class="k">Status</div>
+            <div class="v">{{receiptStatusBadge}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+<div class="watermark">Urgent IT Solution Pvt Ltd</div>
+    <!-- DETAILS -->
+    <div class="pad no-break">
+      <div class="sectionTitle">Details</div>
+      <table>
+        <tbody>
+          <tr>
+            <th style="width: 160px;">Invoice No</th>
+            <td><b>{{invoice.invoice_no}}</b></td>
+          </tr>
+          <tr>
+            <th>Customer</th>
+            <td><b>{{customer.name}}</b></td>
+          </tr>
+          <tr>
+            <th>Amount Received</th>
+            <td><b>{{payment.amount}}</b></td>
+          </tr>
+          <tr>
+            <th>Mode</th>
+            <td>{{payment.mode}}</td>
+          </tr>
+          <tr>
+            <th>Reference</th>
+            <td>{{payment.reference_no}}</td>
+          </tr>
+          <tr>
+            <th>Notes</th>
+            <td>{{payment.notes}}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:12px;" class="sectionTitle">Invoice Summary</div>
+      <table>
+        <tbody>
+          <tr>
+            <th style="width: 160px;">Invoice Total</th>
+            <td class="r"><b>{{invoice.grand_total}}</b></td>
+          </tr>
+          <tr>
+            <th>Paid Total</th>
+            <td class="r"><b>{{invoice.paid_total}}</b></td>
+          </tr>
+          <tr>
+            <th>Due Total</th>
+            <td class="r">{{dueBadge}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="pad no-break">
+      <div class="row">
+        <div class="small muted">
+          This is a computer generated receipt.<br/>
+          Generated by: {{company.name}}
+        </div>
+
+        <div class="signBox">
+          <div class="sectionTitle" style="margin-top:0; text-align:center;">Authorised Signatory</div>
+          <div class="signImg">{{companySignature}}</div>
+          <div class="small muted">{{company.name}}</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

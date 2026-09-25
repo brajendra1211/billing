@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# User uploads (logos, signatures)
+backend/uploads/
+
+# Build output / logs
+dist/
+*.log
+.DS_Store
