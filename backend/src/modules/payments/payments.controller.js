@@ -2,6 +2,7 @@ const asyncHandler = require("../../utils/asyncHandler");
 const service = require("./payments.service");
 const { paymentCreateSchema, paymentDeleteSchema } = require("./payments.validation");
 const pdfService = require("../pdf/pdf.service"); // ✅ has generateReceiptPdf
+const onlinePayments = require("../onlinePayments/onlinePayments.service");
 
 const listByInvoice = asyncHandler(async (req, res) => {
   const companyId = req.user.companyId;
@@ -18,6 +19,11 @@ const addToInvoice = asyncHandler(async (req, res) => {
 
   const payload = paymentCreateSchema.parse(req.body);
   const out = await service.addToInvoice({ companyId, userId, invoiceId, payload });
+
+  // Fully paid by hand: close any open online payment link so it can't be paid twice
+  if (out.due_total <= 0) {
+    onlinePayments.cancelOpenLinks(companyId, invoiceId).catch((e) => console.warn("cancel links:", e.message));
+  }
 
   res.json({ ok: true, ...out });
 });

@@ -56,7 +56,15 @@ function paymentBlock(company, amount) {
   </div>`;
 }
 
-function invoiceEmail({ company, customer, invoice, message }) {
+function portalButton(portalUrl, label = "View invoice & pay online") {
+  if (!portalUrl) return "";
+  return `
+  <p style="margin:18px 0;">
+    <a href="${esc(portalUrl)}" style="background:#111;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;display:inline-block;font-weight:bold;">${esc(label)}</a>
+  </p>`;
+}
+
+function invoiceEmail({ company, customer, invoice, message, portalUrl }) {
   const subject = `Invoice ${invoiceLabel(invoice)} from ${company.name} — ${money(invoice.grand_total)}`;
   const html = layout(
     company,
@@ -70,13 +78,14 @@ function invoiceEmail({ company, customer, invoice, message }) {
       <tr><td style="padding:4px 16px 4px 0;color:#555;">Amount</td><td><b>${money(invoice.grand_total)}</b></td></tr>
       ${Number(invoice.paid_total) > 0 ? `<tr><td style="padding:4px 16px 4px 0;color:#555;">Balance due</td><td><b>${money(invoice.due_total)}</b></td></tr>` : ""}
     </table>
+    ${Number(invoice.due_total) > 0 ? portalButton(portalUrl) : portalButton(portalUrl, "View your invoices")}
     ${paymentBlock(company, invoice.due_total)}
     <p>Thank you for your business.</p>`
   );
   return { subject, html };
 }
 
-function reminderEmail({ company, customer, invoice, daysOverdue }) {
+function reminderEmail({ company, customer, invoice, daysOverdue, portalUrl }) {
   const subject = `Payment reminder: Invoice ${invoiceLabel(invoice)} — ${money(invoice.due_total)} due`;
   const html = layout(
     company,
@@ -88,13 +97,14 @@ function reminderEmail({ company, customer, invoice, daysOverdue }) {
           ? `, which was due on ${esc(fmtDate(invoice.due_date || invoice.invoice_date))} (${daysOverdue} days ago)`
           : ""
       }.</p>
+    ${portalButton(portalUrl, "Pay online now")}
     ${paymentBlock(company, invoice.due_total)}
     <p>If you have already paid, please ignore this email or reply with the payment reference.</p>`
   );
   return { subject, html };
 }
 
-function renewalAlertEmail({ company, renewal, invoice }) {
+function renewalAlertEmail({ company, renewal, invoice, portalUrl }) {
   const dueTxt = fmtDate(renewal.next_due_date);
   const expired = Number(renewal.days_left) < 0;
   const subject = expired
@@ -115,13 +125,14 @@ function renewalAlertEmail({ company, renewal, invoice }) {
       <tr><td style="padding:4px 16px 4px 0;color:#555;">Amount</td><td><b>${money(amount)}</b>${invoice ? "" : " + GST"}</td></tr>
       ${invoice ? `<tr><td style="padding:4px 16px 4px 0;color:#555;">Invoice</td><td><b>${esc(invoiceLabel(invoice))}</b> (attached)</td></tr>` : ""}
     </table>
+    ${invoice ? portalButton(portalUrl, "Pay online now") : ""}
     ${paymentBlock(company, amount)}`
   );
   return { subject, html };
 }
 
 /** WhatsApp text (plain, *bold* is WhatsApp markdown) */
-function invoiceWhatsappText({ company, customer, invoice, pdfUrl }) {
+function invoiceWhatsappText({ company, customer, invoice, portalUrl }) {
   const lines = [
     `Dear ${customer.contact_person || customer.name},`,
     ``,
@@ -134,7 +145,9 @@ function invoiceWhatsappText({ company, customer, invoice, pdfUrl }) {
   if (Number(invoice.due_total) > 0 && company.upi_id) {
     lines.push(``, `Pay via UPI: *${company.upi_id}*`);
   }
-  if (pdfUrl) lines.push(``, `Invoice PDF: ${pdfUrl}`);
+  if (portalUrl) {
+    lines.push(``, Number(invoice.due_total) > 0 ? `View invoice & pay online: ${portalUrl}` : `View invoice: ${portalUrl}`);
+  }
   lines.push(``, `Thank you!`);
   return lines.join("\n");
 }

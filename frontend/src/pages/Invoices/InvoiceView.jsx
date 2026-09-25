@@ -58,6 +58,8 @@ export default function InvoiceView() {
   const { user } = useAuth();
   const isAdmin = String(user?.role || localStorage.getItem("role") || "").toUpperCase() === "ADMIN";
   const [creditData, setCreditData] = useState({ notes: [], lines: [] });
+  const [paymentLinks, setPaymentLinks] = useState([]);
+  const [linkBusy, setLinkBusy] = useState(false);
   const [cnOpen, setCnOpen] = useState(false);
   const [cnSaving, setCnSaving] = useState(false);
   const [cnForm, setCnForm] = useState({
@@ -131,6 +133,9 @@ export default function InvoiceView() {
 
       const cnRes = await invoicesApi.creditNotes(id);
       setCreditData(cnRes.data || { notes: [], lines: [] });
+
+      const plRes = await invoicesApi.paymentLinks(id);
+      setPaymentLinks(plRes.data || []);
     } finally {
       setLoading(false);
     }
@@ -186,6 +191,49 @@ export default function InvoiceView() {
     } finally {
       setFinalizing(false);
     }
+  };
+
+  const createPaymentLink = async () => {
+    setLinkBusy(true);
+    try {
+      const res = await invoicesApi.createPaymentLink(id);
+      await load();
+      try {
+        await navigator.clipboard.writeText(res.data.short_url);
+      } catch {
+        // clipboard may be blocked; the link is shown on the page
+      }
+      alert(`Payment link ready (copied): ${res.data.short_url}`);
+    } catch (err) {
+      alert(err?.response?.data?.error || err.message);
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const syncPaymentLink = async () => {
+    setLinkBusy(true);
+    try {
+      const res = await invoicesApi.syncPaymentLink(id);
+      await load();
+      const paid = (res.data?.results || []).includes("paid");
+      alert(paid ? "Online payment mil gaya ✅" : "Abhi tak payment nahi aaya");
+    } catch (err) {
+      alert(err?.response?.data?.error || err.message);
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const shareLinkWhatsapp = (url) => {
+    const phone = String(invoice?.customer_phone || "").replace(/\D/g, "").replace(/^0+/, "");
+    const num = phone.length === 10 ? `91${phone}` : phone;
+    const text = `Dear ${invoice?.customer_name || "Customer"},
+Please pay ₹ ${invoice?.due_total} for invoice ${invoice?.invoice_no || `#${invoice?.id}`} online:
+${url}
+
+Thank you!`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const deletePayment = async (p) => {
@@ -748,6 +796,81 @@ export default function InvoiceView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Online payment link */}
+      {!isCancelled && (Number(invoice.due_total || 0) > 0 || paymentLinks.length > 0) && (
+        <Card className="rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base">Online Payment Link</CardTitle>
+            <div className="flex gap-2">
+              {paymentLinks.some((l) => l.status === "CREATED") && (
+                <Button size="sm" variant="outline" disabled={linkBusy} onClick={syncPaymentLink}>
+                  Check status
+                </Button>
+              )}
+              {Number(invoice.due_total || 0) > 0 && (
+                <Button size="sm" disabled={linkBusy} onClick={createPaymentLink}>
+                  {linkBusy ? "Please wait..." : "Get payment link"}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {paymentLinks.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                Razorpay link banakar customer ko bhejein. Payment hote hi invoice apne aap update ho jayega.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 pr-4">Link</th>
+                      <th className="py-2 pr-4 text-right">Amount</th>
+                      <th className="py-2 pr-4">Status</th>
+                      <th className="py-2 pr-4">Created</th>
+                      <th className="py-2 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentLinks.map((l) => (
+                      <tr key={l.id} className="border-b last:border-0">
+                        <td className="py-2 pr-4">
+                          <a className="underline" href={l.short_url} target="_blank" rel="noreferrer">
+                            {l.short_url}
+                          </a>
+                        </td>
+                        <td className="py-2 pr-4 text-right"><Money value={l.amount} /></td>
+                        <td className="py-2 pr-4">
+                          <Badge
+                            className={`rounded-full ${
+                              l.status === "PAID"
+                                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                                : l.status === "CREATED"
+                                  ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            {l.status === "CREATED" ? "OPEN" : l.status}
+                          </Badge>
+                        </td>
+                        <td className="py-2 pr-4 whitespace-nowrap">{String(l.created_at).slice(0, 16)}</td>
+                        <td className="py-2 text-right">
+                          {l.status === "CREATED" && (
+                            <Button size="sm" variant="secondary" onClick={() => shareLinkWhatsapp(l.short_url)}>
+                              WhatsApp
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Credit notes */}
       {(String(invoice.status).toUpperCase() === "FINAL" || creditData.notes.length > 0) && (

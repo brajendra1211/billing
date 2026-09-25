@@ -72,6 +72,24 @@ export default function CustomersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const onPortal = async (c) => {
+    try {
+      const res = await customersApi.portalLink(c.id);
+      const { url, public_url_configured } = res.data;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        // clipboard may be blocked; the prompt below still lets the user copy
+      }
+      const note = public_url_configured
+        ? "Link copy ho gaya. Customer ko bhejein:"
+        : "Note: PUBLIC_APP_URL set nahi hai, ye link sirf is computer pe chalega. Link:";
+      prompt(`${c.name} - ${note}`, url);
+    } catch (err) {
+      alert(err?.response?.data?.error || err.message);
+    }
+  };
+
   const onDelete = async (id) => {
     if (!confirm("Delete customer?")) return;
     await customersApi.remove(id);
@@ -255,6 +273,9 @@ export default function CustomersPage() {
                     <td className="py-3 pr-4">{c.billing_state || "—"}</td>
                     <td className="py-3 text-right">
                       <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" onClick={() => onPortal(c)} title="Customer portal link">
+                          Portal
+                        </Button>
                         <Button size="sm" variant="secondary" onClick={() => onEdit(c)}>
                           Edit
                         </Button>

@@ -21,6 +21,8 @@ const vendorRoutes = require("./modules/vendors/vendors.routes");
 const renewalsRoutes = require("./modules/renewals/renewals.routes");
 const notificationsRoutes = require("./modules/notifications/notifications.routes");
 const creditNotesRoutes = require("./modules/creditNotes/creditNotes.routes");
+const portalRoutes = require("./modules/portal/portal.routes");
+const onlinePaymentsCtrl = require("./modules/onlinePayments/onlinePayments.controller");
 
 
 
@@ -43,6 +45,10 @@ app.use(
   })
 );
 app.use(cors());
+
+// Razorpay webhook needs the raw body for signature check, so it goes before express.json()
+app.post("/api/webhooks/razorpay", express.raw({ type: "*/*", limit: "1mb" }), onlinePaymentsCtrl.webhook);
+
 app.use(express.json({ limit: "1mb" }));
 
 // Health
@@ -50,6 +56,7 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // Public
 app.use("/api/auth", authRoutes);
+app.use("/api/portal", portalRoutes); // customer portal, secured by secret token
 
 // Protected
 app.use("/api/customers", authRequired, allowRoles("ADMIN", "STAFF"), customersRoutes);

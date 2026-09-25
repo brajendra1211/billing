@@ -29,8 +29,8 @@ async function listByInvoice(companyId, invoiceId) {
 async function insertPayment(conn, row) {
   const [r] = await conn.query(
     `INSERT INTO payments
-     (company_id, invoice_id, payment_date, amount, mode, reference_no, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (company_id, invoice_id, payment_date, amount, mode, reference_no, gateway_payment_id, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.company_id,
       row.invoice_id,
@@ -38,6 +38,7 @@ async function insertPayment(conn, row) {
       row.amount,
       row.mode,
       row.reference_no,
+      row.gateway_payment_id || null,
       row.notes,
       row.created_by,
     ]

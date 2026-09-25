@@ -7,6 +7,7 @@ const renewalsService = require("../renewals/renewals.service");
 const { sendMail, isMailConfigured } = require("../../utils/mailer");
 const { isValidUpiId } = require("../../utils/upi");
 const { writeAudit } = require("../../utils/audit");
+const portalTokens = require("../portal/portal.tokens");
 
 function todayISO() {
   const d = new Date();
@@ -49,6 +50,13 @@ async function once(key, fn) {
 
 /* ---------------- Invoice email / WhatsApp ---------------- */
 
+/** Customer portal link, only when the app has a public URL (localhost links are useless to customers) */
+async function customerPortalUrl(companyId, customerId) {
+  if (!portalTokens.isPublicUrlConfigured() || !customerId) return null;
+  const token = await portalTokens.getOrCreateToken(companyId, customerId);
+  return portalTokens.portalUrl(token);
+}
+
 async function loadInvoiceBundle(companyId, invoiceId) {
   const data = await pdfService.getCompanyCustomerInvoice(companyId, invoiceId);
   if (!data) throw httpError(404, "Invoice not found");
@@ -64,9 +72,10 @@ async function emailInvoice({ companyId, invoiceId, to, cc, message, isReminder 
   if (!recipient) throw httpError(400, "Customer ki email nahi hai. Customer mein email add karein.");
 
   const { pdf } = await pdfService.generateInvoicePdf(companyId, invoiceId);
+  const portalUrl = await customerPortalUrl(companyId, data.invoice.customer_id);
   const mail = isReminder
-    ? tpl.reminderEmail({ ...data, daysOverdue })
-    : tpl.invoiceEmail({ ...data, message });
+    ? tpl.reminderEmail({ ...data, daysOverdue, portalUrl })
+    : tpl.invoiceEmail({ ...data, message, portalUrl });
 
   await sendMail({
     fromName: data.company.name,
@@ -121,7 +130,8 @@ function normalizeIndianPhone(phone) {
 async function whatsappLink({ companyId, invoiceId, phone }) {
   const data = await loadInvoiceBundle(companyId, invoiceId);
   const number = normalizeIndianPhone(phone || data.customer.phone);
-  const text = tpl.invoiceWhatsappText(data);
+  const portalUrl = await customerPortalUrl(companyId, data.invoice.customer_id);
+  const text = tpl.invoiceWhatsappText({ ...data, portalUrl });
   const url = `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
   return { url, phone: number || null, text };
 }
@@ -218,7 +228,8 @@ async function runRenewals(companyId, settings) {
             }
           }
 
-          const mail = tpl.renewalAlertEmail({ company, renewal: r, invoice });
+          const portalUrl = await customerPortalUrl(companyId, r.customer_id);
+          const mail = tpl.renewalAlertEmail({ company, renewal: r, invoice, portalUrl });
           await sendMail({
             fromName: company.name,
             to,

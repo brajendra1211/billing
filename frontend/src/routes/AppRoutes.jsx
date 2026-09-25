@@ -22,6 +22,7 @@ import RenewalsList from "@/pages/Renewals/RenewalsList";
 import RenewalCreate from "@/pages/Renewals/RenewalCreate";
 import RenewalView from "@/pages/Renewals/RenewalView";
 import NotificationSettings from "@/pages/Settings/NotificationSettings";
+import CustomerPortal from "@/pages/Portal/CustomerPortal";
 
 
 
@@ -29,6 +30,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/portal/:token" element={<CustomerPortal />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>

@@ -3,6 +3,7 @@ const ctrl = require("./invoices.controller");
 const { allowRoles } = require("../../middlewares/auth");
 const notifications = require("../notifications/notifications.controller");
 const creditNotes = require("../creditNotes/creditNotes.controller");
+const onlinePayments = require("../onlinePayments/onlinePayments.controller");
 
 // Everyone (including VIEWER)
 router.get("/", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.list);
@@ -19,6 +20,9 @@ router.post("/:id/send-email", allowRoles("ADMIN", "STAFF"), notifications.sendI
 router.get("/:id/whatsapp-link", allowRoles("ADMIN", "STAFF"), notifications.whatsappLink);
 router.get("/:id/credit-notes", allowRoles("ADMIN", "STAFF", "VIEWER"), creditNotes.listForInvoice);
 router.post("/:id/credit-notes", allowRoles("ADMIN"), creditNotes.create);
+router.get("/:id/payment-links", allowRoles("ADMIN", "STAFF", "VIEWER"), onlinePayments.list);
+router.post("/:id/payment-link", allowRoles("ADMIN", "STAFF"), onlinePayments.create);
+router.post("/:id/payment-link/sync", allowRoles("ADMIN", "STAFF"), onlinePayments.sync);
 router.get("/:id/audit", allowRoles("ADMIN", "STAFF", "VIEWER"), ctrl.listAudit);
 
 // Only ADMIN

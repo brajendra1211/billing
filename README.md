@@ -13,6 +13,8 @@ GST billing and invoicing app for an IT services business. It covers invoices, p
 | Payments | Partial/full payments, receipt PDF, delete a wrong payment (ADMIN, audited) |
 | Credit notes | Against FINAL invoices, full or partial (per line), optional refund, own number series (`UCN/2026-27/000001`), PDF |
 | Sending | Email invoice with PDF attached; WhatsApp message with invoice summary |
+| Online payment | Razorpay payment link per invoice ("Pay Now"). The invoice is marked paid automatically by webhook, by the customer returning to the portal, or by a sync every 30 minutes. |
+| Customer portal | A secret link per customer (no password) to see invoices, download PDFs, view the account statement and pay online |
 | Automation | Daily at 9 AM IST: overdue payment reminders (e.g. 3/7/15 days), renewal auto-invoice (DRAFT), renewal expiry alerts |
 | Renewals | Domain/hosting/SSL/AMC renewals with due-date tracking |
 | Vendors | Vendor services, daily consumption, monthly vendor bills and payments |
@@ -58,6 +60,9 @@ Log in with the admin account, then fill in **Company Settings**: GSTIN, address
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME` | MySQL connection |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Login tokens. Use a long random secret. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Outgoing email. For Gmail use `smtp.gmail.com`, port 587 and an App Password. |
+| `PUBLIC_APP_URL` | Public URL of the frontend, e.g. `https://billing.example.com`. Needed for portal links in emails/WhatsApp and for the Razorpay return page. |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay API keys (Dashboard → Account & Settings → API Keys). Use test keys first. |
+| `RAZORPAY_WEBHOOK_SECRET` | Secret of the Razorpay webhook. Webhook URL: `<API URL>/api/webhooks/razorpay`, event `payment_link.paid`. |
 | `NOTIFY_CRON` | When the daily automation runs (default `0 9 * * *`, Asia/Kolkata) |
 | `DISABLE_CRON` | Set to `1` to turn the daily automation off, e.g. on a second server |
 
@@ -110,4 +115,6 @@ frontend/
 
 - A FINAL invoice cannot be edited or cancelled. Correct it with a credit note.
 - Invoice balance is `grand total − credit notes − payments + refunds`.
+- The customer portal only shows invoices that are FINAL or were sent to the customer. Use **Regenerate** on a customer's portal link to stop the old link from working.
+- Razorpay webhooks need the API to be reachable from the internet. Without that, payments are still picked up by the 30-minute sync or when the customer returns to the portal.
 - `backend/uploads/` (logo, signature) and `backend/.env` are not committed. Back them up separately.
