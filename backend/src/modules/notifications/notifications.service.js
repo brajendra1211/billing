@@ -264,6 +264,11 @@ async function runForCompany(companyId) {
   if (settings.renewal_auto_invoice || (settings.renewal_alerts && mailOk)) {
     summary.renewals = await runRenewals(companyId, { ...settings, renewal_alerts: settings.renewal_alerts && mailOk });
   }
+  if (settings.milestone_auto_invoice || (settings.milestone_demands && mailOk)) {
+    // required lazily: paymentPlans -> notifications.repository, avoid a load-order cycle
+    const paymentPlans = require("../paymentPlans/paymentPlans.service");
+    summary.milestones = await paymentPlans.runMilestoneAutomation(companyId, settings, { mailOk });
+  }
   return summary;
 }
 

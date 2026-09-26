@@ -24,6 +24,9 @@ import RenewalView from "@/pages/Renewals/RenewalView";
 import NotificationSettings from "@/pages/Settings/NotificationSettings";
 import CustomerPortal from "@/pages/Portal/CustomerPortal";
 import GstReports from "@/pages/Reports/GstReports";
+import PaymentPlansList from "@/pages/PaymentPlans/PaymentPlansList";
+import PaymentPlanForm from "@/pages/PaymentPlans/PaymentPlanForm";
+import PaymentPlanView from "@/pages/PaymentPlans/PaymentPlanView";
 
 
 
@@ -45,6 +48,10 @@ export default function AppRoutes() {
           <Route path="/users" element={<UsersPage />} />
          <Route path="/reports" element={<ReportsDashboard />} />
          <Route path="/reports/gst" element={<GstReports />} />
+          <Route path="/payment-plans" element={<PaymentPlansList />} />
+          <Route path="/payment-plans/new" element={<PaymentPlanForm />} />
+          <Route path="/payment-plans/:id" element={<PaymentPlanView />} />
+          <Route path="/payment-plans/:id/edit" element={<PaymentPlanForm />} />
          <Route path="/invoices/:id/edit" element={<InvoiceEdit />} />
          <Route path="/expenses" element={<ExpensesList />} />
          <Route path="/expenses/categories" element={<ExpenseCategories />} />

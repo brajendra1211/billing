@@ -10,6 +10,7 @@ GST billing and invoicing app for an IT services business. It covers invoices, p
 | Area | What it does |
 |---|---|
 | Invoices | DRAFT → FINAL workflow, GST (CGST+SGST or IGST), monthly/period billing, gapless numbering (`UIS/2026-27/000001`), PDF with UPI QR code |
+| Payment plans | Project value split into installments (e.g. 30/40/30, by % or amount) with due dates or "on completion". Per installment: payment request / demand letter PDF (`UDL/...`, schedule, GST, UPI QR), email or WhatsApp, and a one-click GST tax invoice. Optional daily automation: demand before the due date, reminder when overdue, tax invoice on the due date. |
 | Payments | Partial/full payments, receipt PDF, delete a wrong payment (ADMIN, audited) |
 | Credit notes | Against FINAL invoices, full or partial (per line), optional refund, own number series (`UCN/2026-27/000001`), PDF |
 | Sending | Email invoice with PDF attached; WhatsApp message with invoice summary |
@@ -116,6 +117,7 @@ frontend/
 ## Notes
 
 - A FINAL invoice cannot be edited or cancelled. Correct it with a credit note.
+- A demand letter is a payment request, not a tax invoice. For installments with a fixed due date, GST expects the tax invoice by that date: create it from the plan, or switch on "auto invoice" in Reminders & Alerts.
 - GSTR-1 includes FINAL invoices and credit notes dated in the month. B2CL is inter-state B2C invoices above ₹1,00,000. Check the `warnings` sheet and have your CA review the file before filing.
 - Invoice balance is `grand total − credit notes − payments + refunds`.
 - The customer portal only shows invoices that are FINAL or were sent to the customer. Use **Regenerate** on a customer's portal link to stop the old link from working.

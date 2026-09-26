@@ -334,6 +334,9 @@ CREATE TABLE `notification_settings` (
   `renewal_auto_invoice` tinyint(1) NOT NULL DEFAULT '0',
   `renewal_invoice_days_before` int NOT NULL DEFAULT '7',
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `milestone_demands` tinyint(1) NOT NULL DEFAULT '0',
+  `milestone_demand_days` int NOT NULL DEFAULT '7',
+  `milestone_auto_invoice` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`company_id`),
   CONSTRAINT `fk_notif_settings_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -358,6 +361,52 @@ CREATE TABLE `payment_links` (
   KEY `fk_pl_company` (`company_id`),
   CONSTRAINT `fk_pl_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
   CONSTRAINT `fk_pl_invoice` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `payment_plan_milestones` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `plan_id` bigint unsigned NOT NULL,
+  `company_id` bigint unsigned NOT NULL,
+  `seq` int NOT NULL,
+  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `percent` decimal(6,2) DEFAULT NULL,
+  `amount` decimal(14,2) NOT NULL,
+  `due_date` date DEFAULT NULL,
+  `demand_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `demand_count` int NOT NULL DEFAULT '0',
+  `last_demand_at` datetime DEFAULT NULL,
+  `invoice_id` bigint unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_milestone_demand_no` (`company_id`,`demand_no`),
+  UNIQUE KEY `uk_milestone_invoice` (`invoice_id`),
+  KEY `idx_milestones_plan` (`plan_id`,`seq`),
+  KEY `idx_milestones_due` (`company_id`,`due_date`),
+  CONSTRAINT `fk_ms_invoice` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`),
+  CONSTRAINT `fk_ms_plan` FOREIGN KEY (`plan_id`) REFERENCES `payment_plans` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `payment_plans` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `company_id` bigint unsigned NOT NULL,
+  `customer_id` bigint unsigned NOT NULL,
+  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `item_id` bigint unsigned DEFAULT NULL,
+  `total_amount` decimal(14,2) NOT NULL,
+  `tax_percent` decimal(5,2) NOT NULL DEFAULT '18.00',
+  `status` enum('ACTIVE','CANCELLED') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'ACTIVE',
+  `created_by` bigint unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_plans_company` (`company_id`,`status`),
+  KEY `idx_plans_customer` (`customer_id`),
+  KEY `fk_plans_item` (`item_id`),
+  CONSTRAINT `fk_plans_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
+  CONSTRAINT `fk_plans_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`),
+  CONSTRAINT `fk_plans_item` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `payments` (
@@ -598,5 +647,6 @@ CREATE TABLE `vendors` (
 INSERT INTO schema_migrations (filename) VALUES ('001_notifications.sql');
 INSERT INTO schema_migrations (filename) VALUES ('002_credit_notes_billing_months.sql');
 INSERT INTO schema_migrations (filename) VALUES ('003_payment_links_portal.sql');
+INSERT INTO schema_migrations (filename) VALUES ('004_payment_plans.sql');
 
 SET FOREIGN_KEY_CHECKS=1;

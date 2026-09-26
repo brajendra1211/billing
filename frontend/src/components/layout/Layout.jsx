@@ -72,6 +72,11 @@ function SidebarNav({ role }) {
         Invoices
       </NavLink>
 
+      <NavLink to="/payment-plans" className={navClass}>
+        <ReceiptText className="h-4 w-4" />
+        Payment Plans
+      </NavLink>
+
       <NavLink to="/reports" end className={navClass}>
         <BarChart3 className="h-4 w-4" />
         Reports

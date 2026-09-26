@@ -642,6 +642,8 @@ listInvoicesFiltered,
   listReminders,
   listAudit,
 
+  resolveSupply,
+
   // keep old export to avoid breaking other files
   createAndFinalizeInvoice,
 };

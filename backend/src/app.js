@@ -22,6 +22,7 @@ const renewalsRoutes = require("./modules/renewals/renewals.routes");
 const notificationsRoutes = require("./modules/notifications/notifications.routes");
 const creditNotesRoutes = require("./modules/creditNotes/creditNotes.routes");
 const portalRoutes = require("./modules/portal/portal.routes");
+const paymentPlansRoutes = require("./modules/paymentPlans/paymentPlans.routes");
 const onlinePaymentsCtrl = require("./modules/onlinePayments/onlinePayments.controller");
 
 
@@ -73,6 +74,7 @@ app.use("/api/vendors", authRequired, vendorRoutes);
 app.use("/api/renewals", authRequired, renewalsRoutes);
 app.use("/api/notifications", authRequired, notificationsRoutes);
 app.use("/api/credit-notes", authRequired, creditNotesRoutes);
+app.use("/api/payment-plans", authRequired, paymentPlansRoutes);
 
 
 

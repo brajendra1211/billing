@@ -20,6 +20,9 @@ const settingsSchema = z.object({
   renewal_alerts: z.coerce.number().int().min(0).max(1),
   renewal_auto_invoice: z.coerce.number().int().min(0).max(1),
   renewal_invoice_days_before: z.coerce.number().int().min(0).max(60).default(7),
+  milestone_demands: z.coerce.number().int().min(0).max(1).default(0),
+  milestone_demand_days: z.coerce.number().int().min(0).max(60).default(7),
+  milestone_auto_invoice: z.coerce.number().int().min(0).max(1).default(0),
 });
 
 const testEmailSchema = z.object({

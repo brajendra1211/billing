@@ -6,6 +6,9 @@ const DEFAULT_SETTINGS = {
   renewal_alerts: 0,
   renewal_auto_invoice: 0,
   renewal_invoice_days_before: 7,
+  milestone_demands: 0,
+  milestone_demand_days: 7,
+  milestone_auto_invoice: 0,
 };
 
 async function getSettings(companyId) {
@@ -19,14 +22,18 @@ async function getSettings(companyId) {
 async function saveSettings(companyId, s) {
   await pool.query(
     `INSERT INTO notification_settings
-       (company_id, auto_reminders, reminder_days, renewal_alerts, renewal_auto_invoice, renewal_invoice_days_before)
-     VALUES (?,?,?,?,?,?)
+       (company_id, auto_reminders, reminder_days, renewal_alerts, renewal_auto_invoice, renewal_invoice_days_before,
+        milestone_demands, milestone_demand_days, milestone_auto_invoice)
+     VALUES (?,?,?,?,?,?,?,?,?)
      ON DUPLICATE KEY UPDATE
        auto_reminders=VALUES(auto_reminders),
        reminder_days=VALUES(reminder_days),
        renewal_alerts=VALUES(renewal_alerts),
        renewal_auto_invoice=VALUES(renewal_auto_invoice),
-       renewal_invoice_days_before=VALUES(renewal_invoice_days_before)`,
+       renewal_invoice_days_before=VALUES(renewal_invoice_days_before),
+       milestone_demands=VALUES(milestone_demands),
+       milestone_demand_days=VALUES(milestone_demand_days),
+       milestone_auto_invoice=VALUES(milestone_auto_invoice)`,
     [
       companyId,
       s.auto_reminders,
@@ -34,6 +41,9 @@ async function saveSettings(companyId, s) {
       s.renewal_alerts,
       s.renewal_auto_invoice,
       s.renewal_invoice_days_before,
+      s.milestone_demands ?? 0,
+      s.milestone_demand_days ?? 7,
+      s.milestone_auto_invoice ?? 0,
     ]
   );
 }
@@ -42,7 +52,8 @@ async function saveSettings(companyId, s) {
 async function listEnabledCompanies() {
   const [rows] = await pool.query(
     `SELECT company_id FROM notification_settings
-     WHERE auto_reminders=1 OR renewal_alerts=1 OR renewal_auto_invoice=1`
+     WHERE auto_reminders=1 OR renewal_alerts=1 OR renewal_auto_invoice=1
+        OR milestone_demands=1 OR milestone_auto_invoice=1`
   );
   return rows.map((r) => Number(r.company_id));
 }
@@ -79,10 +90,13 @@ async function markFailed(id, error) {
 
 async function listLog(companyId, limit = 100) {
   const [rows] = await pool.query(
-    `SELECT l.*, i.invoice_no, r.name AS renewal_name
+    `SELECT l.*, i.invoice_no, r.name AS renewal_name,
+            pm.plan_id, CONCAT(pp.title, ' - ', pm.title) AS milestone_name
      FROM notification_log l
      LEFT JOIN invoices i ON l.entity_type='INVOICE' AND i.id=l.entity_id
      LEFT JOIN recurring_expenses r ON l.entity_type='RENEWAL' AND r.id=l.entity_id
+     LEFT JOIN payment_plan_milestones pm ON l.entity_type='MILESTONE' AND pm.id=l.entity_id
+     LEFT JOIN payment_plans pp ON pp.id=pm.plan_id
      WHERE l.company_id=?
      ORDER BY l.id DESC
      LIMIT ?`,

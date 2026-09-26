@@ -13,6 +13,8 @@ const KIND_LABEL = {
   INVOICE_REMINDER: "Payment reminder",
   RENEWAL_ALERT: "Renewal alert",
   RENEWAL_INVOICE: "Renewal invoice",
+  MILESTONE_DEMAND: "Installment demand",
+  MILESTONE_INVOICE: "Installment invoice",
 };
 
 function StatusPill({ status }) {
@@ -85,6 +87,9 @@ export default function NotificationSettings() {
         renewal_alerts: form.renewal_alerts,
         renewal_auto_invoice: form.renewal_auto_invoice,
         renewal_invoice_days_before: Number(form.renewal_invoice_days_before || 0),
+        milestone_demands: form.milestone_demands,
+        milestone_demand_days: Number(form.milestone_demand_days || 0),
+        milestone_auto_invoice: form.milestone_auto_invoice,
       });
       setForm(res.data);
       alert("Settings saved ✅");
@@ -208,7 +213,13 @@ export default function NotificationSettings() {
                 failed {lastRun.renewals.failed}
               </div>
             )}
-            {!lastRun.reminders && !lastRun.renewals && <div>Kuch bhi enabled nahi hai.</div>}
+            {lastRun.milestones && (
+              <div>
+                Installments — invoices created {lastRun.milestones.invoices_created}, demands sent{" "}
+                {lastRun.milestones.demands_sent}, failed {lastRun.milestones.failed}
+              </div>
+            )}
+            {!lastRun.reminders && !lastRun.renewals && !lastRun.milestones && <div>Kuch bhi enabled nahi hai.</div>}
             {(lastRun.notes || []).map((n) => (
               <div key={n} className="text-amber-700">{n}</div>
             ))}
@@ -260,6 +271,32 @@ export default function NotificationSettings() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Toggle
+                  checked={form.milestone_demands}
+                  onChange={(v) => set("milestone_demands", v)}
+                  label="Payment plan: installment demand letters (email)"
+                  hint="Due date se pehle demand letter, aur 3 din overdue hone pe reminder. Haath se bheja ho to pehla automatic nahi jayega."
+                />
+                <div className="grid gap-2 pl-1">
+                  <Label>Due date se kitne din pehle demand bhejein</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={form.milestone_demand_days}
+                    onChange={(e) => set("milestone_demand_days", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Toggle
+                checked={form.milestone_auto_invoice}
+                onChange={(v) => set("milestone_auto_invoice", v)}
+                label="Payment plan: due date pe tax invoice apne aap (DRAFT)"
+                hint="GST rule: installment ka tax invoice uski due date tak banna chahiye."
+              />
+
               <Toggle
                 checked={form.renewal_alerts}
                 onChange={(v) => set("renewal_alerts", v)}
@@ -301,6 +338,10 @@ export default function NotificationSettings() {
                       {l.entity_type === "INVOICE" ? (
                         <Link className="underline" to={`/invoices/${l.entity_id}`}>
                           {l.invoice_no || `Invoice #${l.entity_id}`}
+                        </Link>
+                      ) : l.entity_type === "MILESTONE" ? (
+                        <Link className="underline" to={`/payment-plans/${l.plan_id}`}>
+                          {l.milestone_name || `Installment #${l.entity_id}`}
                         </Link>
                       ) : (
                         <Link className="underline" to={`/renewals/${l.entity_id}`}>
